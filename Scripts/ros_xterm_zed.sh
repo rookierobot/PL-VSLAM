@@ -1,96 +1,69 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # N.B.:
 # 1) you can kill all the spawned terminals together by right clicking on
 # the X icon on the left bar and selecting "Quit"
 
-#echo "usage: ./${0##*/} "
+# echo "usage: ./${0##*/} "
 
 source ../ros_ws/devel/setup.bash
 
-USE_LIVE=0
+USE_LIVE=1
+USE_RVIZ=1   # if you set this to 1, you should also set Viewer.on: 0 in the yaml settings
+USE_OCTOMAP=0
 
-#DATASET_BASE_FOLDER="$HOME/Work/datasets/rgbd_datasets/zed"
-#DATASET="flight_of_stairs.bag"
+# possible dataset 
+RGBD_DATASET_FOLDER="$HOME/Work/datasets/rgbd_datasets/d435"
+DATASET='office/office.bag'
 
-DATASET_BASE_FOLDER="$HOME/Work/datasets/rgbd_datasets/zed"
-DATASET="2018-08-01-11-36-42.bag"
+# ROS_BAG_PLAY_OPTIONS="--rate 0.5"  # comment this to remove rate adjustment
 
-#DATASET_BASE_FOLDER="$HOME/Work/datasets/rgbd_datasets/zed"
-#DATASET="zed20191228171358.svo"
+export CAMERA_SETTINGS="../Settings/d435.yaml"
 
-DATASET_PATH=$DATASET_BASE_FOLDER/$DATASET
-eval DATASET_PATH=$DATASET_PATH
+export REMAP_COLOR_TOPIC="/camera/rgb/image_raw:=/camera/color/image_raw"
+export REMAP_DEPTH_TOPIC="camera/depth_registered/image_raw:=/camera/aligned_depth_to_color/image_raw"
+export REMAP_CAMERA_INFO="/camera/rgb/camera_info:=/camera/aligned_depth_to_color/camera_info"
 
-#ROS_BAG_PLAY_OPTIONS="--rate 0.5 --pause"  # comment this to remove rate adjustment (pause on start)
-#ROS_BAG_PLAY_OPTIONS="--rate 0.4 --start=240"  # comment this to remove rate adjustment (start from X secs)
-#ROS_BAG_PLAY_OPTIONS="--rate 0.5"
-
-export CAMERA_SETTINGS="../Settings/zed.yaml"
-#export CAMERA_SETTINGS="../Settings/zed_vga.yaml"
-
-export REMAP_COLOR_TOPIC="/camera/rgb/image_raw:=/zed/zed_node/rgb/image_rect_color"
-export REMAP_DEPTH_TOPIC="/camera/depth_registered/image_raw:=/zed/zed_node/depth/depth_registered"
-export REMAP_CAMERA_INFO_TOPIC="/camera/rgb/camera_info:=/zed/zed_node/rgb/camera_info"
-
-# check if we are using SVO files 
-USE_SVO_FILE=0
-if [[ $DATASET_PATH == *".svo" ]]; then
-    USE_SVO_FILE=1
-fi
-
-# manage topic remapping with old zed bags  
-if [ $USE_LIVE -eq 0 ] && [ $USE_SVO_FILE -eq 0 ]; then  
-	USE_OLD_TOPIC_NAMES=$(rosbag info $DATASET_PATH | grep /zed/left/image_rect_color)  # check if bag uses old topic naming
-	#echo USE_OLD_TOPIC_NAMES: $USE_OLD_TOPIC_NAMES
-	if [ ! -z "$USE_OLD_TOPIC_NAMES" ]; then 
-		echo 'using old zed camera topics'
-		REMAP_COLOR_TOPIC="/camera/rgb/image_raw:=/zed/left/image_rect_color"
-		REMAP_DEPTH_TOPIC="/camera/depth_registered/image_raw:=/zed/depth/depth_registered"
-		REMAP_CAMERA_INFO_TOPIC="/camera/rgb/camera_info:=/zed/left/camera_info"    
-	fi
-fi
-
-# ======================================================================
-# for debugging
-
-#export DEBUG_PREFIX="--prefix 'gdb -ex run --args'"  # uncomment this in order to debug with gdb
-#export LOG_SUFFIX="&> plvs_log.txt"
+# export DEBUG_PREFIX="--prefix 'gdb -ex run --args'"  # uncomment this in order to debug with gdb
 
 # ======================================================================
 
-xterm -e "echo ROSCORE ; roscore ; bash" &
+xterm -hold -e "source ~/.bashrc; echo 3 | source /opt/ros/noetic/setup.bash; export ROS_HOSTNAME=192.168.123.162; export ROS_MASTER_URI=http://192.168.123.162:11311; roscore" &
 sleep 3
 
-if [ $USE_LIVE -eq 0 ]; then
-    # set before launching any node    (https://answers.ros.org/question/217588/error-in-rosbag-play-despite-setting-use_sim_time-param/)
-    #rosparam set use_sim_time true
+if [ $USE_LIVE -eq 0 ]
+then
     sleep 1
 fi
 
 # ======================================================================
 
-xterm -e "echo plvs ; rosrun $DEBUG_PREFIX  plvs RGBD ../Vocabulary/ORBvoc.txt $CAMERA_SETTINGS  $REMAP_COLOR_TOPIC  $REMAP_DEPTH_TOPIC  $REMAP_CAMERA_INFO_TOPIC $LOG_SUFFIX; bash" &
+xterm -hold -e "source ~/.bashrc; echo 3 | source /opt/ros/noetic/setup.bash; export ROS_HOSTNAME=192.168.123.162; export ROS_MASTER_URI=http://192.168.123.162:11311; rosrun $DEBUG_PREFIX plvs RGBD ../Vocabulary/ORBvoc.txt $CAMERA_SETTINGS $REMAP_CAMERA_INFO $REMAP_COLOR_TOPIC $REMAP_DEPTH_TOPIC" &
 
 # ======================================================================
 
-if [ $USE_LIVE -eq 1 ]; then
-    xterm -e "echo LIVE ; roslaunch zed_wrapper zed.launch; bash" &
+if [ $USE_LIVE -eq 1 ]
+then
+    xterm -hold -e "source ~/.bashrc; echo 3 | source /opt/ros/noetic/setup.bash; export ROS_HOSTNAME=192.168.123.162; export ROS_MASTER_URI=http://192.168.123.162:11311; roslaunch plvs d435.launch" &
+    sleep 1
 else
-    if [ $USE_SVO_FILE -eq 1 ]; then
-        echo using svo file $DATASET_PATH 
-        xterm -e "echo RECORDED svo; roslaunch zed_wrapper zed.launch svo_file:=$DATASET_PATH ; bash" &
-    else
-        echo using bag file
-        rosparam set use_sim_time true
-        xterm -e "echo RECORDED bag; rosbag play --clock -d 1 $DATASET_PATH $ROS_BAG_PLAY_OPTIONS; bash" &
-    fi
+    sleep 1
 fi
 
-echo "DONE "
+# ======================================================================
 
-# NOTE: you can use the following command to get the xterm window live if the app terminates or crashes
-# xterm -e "<you_command>; bash" &
+if [ $USE_RVIZ -eq 1 ]
+then
+    xterm -hold -e "source ~/.bashrc; echo 3 | source /opt/ros/noetic/setup.bash; export ROS_HOSTNAME=192.168.123.162; export ROS_MASTER_URI=http://192.168.123.162:11311; roslaunch plvs rviz_plvs.launch" &
+fi
 
+if [ $USE_OCTOMAP -eq 1 ]
+then 
+    xterm -hold -e "source ~/.bashrc; echo 3 | source /opt/ros/noetic/setup.bash; export ROS_HOSTNAME=192.168.123.162; export ROS_MASTER_URI=http://192.168.123.162:11311; roslaunch octomap_server octomap_server.launch" &
+fi
 
-# record "/zed/depth/depth_registered","/zed/left/image_rect_color"
+# ======================================================================
+
+echo "DONE"
+
+# record "/camera/rgb/image_rect_color",/camera/depth_registered/sw_registered/image_rect"

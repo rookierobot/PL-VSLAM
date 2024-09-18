@@ -18,14 +18,15 @@ DATASET_BASE_FOLDER="$HOME/Work/datasets/rgbd_datasets/tum"
 # A quick fix is to play the bags with half rate (it's very likely this gives time to the decoding process to finish its job on time so that clock data publication can be be normally performed.
 
 
-DATASET="rgbd_dataset_freiburg1_room" 
+# DATASET="rgbd_dataset_freiburg1_xyz" 
+DATASET="rgbd_dataset_freiburg3_long_office_household" 
 #DATASET='rgbd_dataset_freiburg2_pioneer_slam'
 #DATASET='rgbd_dataset_freiburg2_pioneer_slam3'
 #DATASET='rgbd_dataset_freiburg3_structure_notexture_far'
 
 RGBD_DATASET_PATH=$DATASET_BASE_FOLDER/$DATASET/$DATASET".bag"
 
-ROS_BAG_PLAY_OPTIONS="--rate 1"  # comment this to remove rate adjustment 
+ROS_BAG_PLAY_OPTIONS="--rate 3"  # comment this to remove rate adjustment 
 
 export CAMERA_SETTINGS="../Settings/ros/TUM1_ros.yaml"
 
